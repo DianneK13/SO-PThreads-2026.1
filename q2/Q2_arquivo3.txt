@@ -1,0 +1,6 @@
+7
+GHI456 Praga       23:00
+2
+XYZ001 Atenas      12:50
+3
+ABC789 Helsinki    17:30
