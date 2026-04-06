@@ -217,10 +217,10 @@ POSSIVEIS MELHORIAS:
 -Ao finalizar o codigo, notei que a criacao de uma unica matriz tridimensional poderia
 substituir o trabalho de guardar os tons da imagem, feito por 3 diferentes matrizes no
 codigo atual. Entretanto, isso impediria o reaproveitamento de algumas das funcoes usadas,
-alem dos valores de retorno e argumentos de outras funcoes.
+alem de resultar na invalidacao dos valores de retorno e dos argumentos de outras funcoes.
 
 -Ao inves de passar somente o indice de cada thread como argumento, uma struct que contivesse,
 alem do indice, as informacoes dos ponteiros declarados no inicio do codigo poderia deixar este
 mais limpo. Porem, novamente, a estrutura do codigo necessitaria ser bastante alterada, o que 
-resultar no surgimento de novos bugs.
+potencialmente resultaria no surgimento de novos bugs.
 */
