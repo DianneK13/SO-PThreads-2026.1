@@ -1,5 +1,7 @@
-//COMANDO P/ CONVERTER IMAGEM:
-//magick INPUT.PNG -compress none questao1_og.ppm
+/*
+COMANDO P/ CONVERTER IMAGEM:
+magick INPUT.PNG -compress none questao1_og.ppm
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,6 +9,7 @@
 
 #define NUM_THREADS 6
 
+//Declaracao dos ponteiros necessarios na funcao executada pelas threads
 int *pontLinhas, *pontColunas;
 int **redMat, **blueMat, **greenMat, **greyMat; 
 
@@ -54,6 +57,14 @@ int normalize(int cor, int rangeCor) {
 
 //Tarefa da thread
 void *routine(void *tid) {
+    /*
+    As threads possuem indices, que as identificam. Visando evitar condicao de corrida,
+    cada thread inicia tratando todas as colunas das linhas que possuem o mesmo indice i
+    que a thread. Depois, tratam todos os pixels da linha de indice i+NUM_THREADS, ate que
+    toda a imagem seja convertida. Por exemplo, para 6 threads, a thread 0 tratara todas as 
+    colunas das linhas 0, 6, 12, 18...
+    */
+
     int i, j;
     int threadId = (*(int*) tid);
 
@@ -75,7 +86,7 @@ int main() {
         return 1;
     }
 
-    //Obter os dados da imagem e criar uma matriz para cada canal de cor
+    //Obter os dados da imagem
     int qntLinhas, qntColunas, rangeCor;
     fscanf(ptrRead, " %*s %d %d %d", &qntColunas, &qntLinhas, &rangeCor);
     pontLinhas = malloc(sizeof(int));
@@ -83,6 +94,7 @@ int main() {
     pontColunas = malloc(sizeof(int));
     *pontColunas = qntColunas;
     
+    //Criar uma matriz para cada canal de cor
     redMat = matriz(qntLinhas, qntColunas);
     if (redMat == NULL) {
         printf("Falha na alocacao da matriz vermelha.\n");
@@ -129,7 +141,7 @@ int main() {
         }
     }
     
-    //Converter os pixels com concorrencia
+    //Criar matriz em grey scale
     greyMat = matriz(qntLinhas, qntColunas);
     if (greyMat == NULL) {
         printf("Falha na alocacao da matriz cinza.\n");
@@ -142,8 +154,10 @@ int main() {
         return 3;
     }
 
+    //Declaracao do vetor de threads
     pthread_t threads[NUM_THREADS];
 
+    //Criacao das threads e assign do indice de cada uma
     for(int i=0; i<NUM_THREADS; i++) {
         int* index = malloc(sizeof(int));
         *index = i;
@@ -153,13 +167,14 @@ int main() {
         }
     }
 
+    //Espera o trabalho de cada uma finalizar para dar join
     for(int i=0; i<NUM_THREADS; i++) {
         if(pthread_join(threads[i], NULL) != 0) {
             return 1;
         }
     }
     
-    //Escrever arquivo da imagem convertida
+    //Criacao do arquivo da imagem convertida
     FILE* ptrWrite = fopen("questao1_converted.ppm", "w");
     if (ptrWrite == NULL) {
         printf("Nao foi possivel criar o arquivo 'questao1_converted.ppm'.\n");
@@ -173,6 +188,7 @@ int main() {
         return 2;
     }
 
+    //Escrita dos valores de cada pixel na imagem
     fprintf(ptrWrite, "P3\n");
     fprintf(ptrWrite, "%d %d\n", qntColunas, qntLinhas);
     fprintf(ptrWrite, "%d\n", rangeCor);
@@ -183,7 +199,7 @@ int main() {
         }
     }
 
-    //Fechar arquivo, frees e encerrar programa
+    //Fechar arquivos, frees e encerrar programa
     free(pontLinhas);
     free(pontColunas);
     freeMatriz(redMat, qntLinhas);
@@ -194,3 +210,17 @@ int main() {
     fclose(ptrWrite);
     return 0;
 }
+
+/*
+POSSIVEIS MELHORIAS:
+
+-Ao finalizar o codigo, notei que a criacao de uma unica matriz tridimensional poderia
+substituir o trabalho de guardar os tons da imagem, feito por 3 diferentes matrizes no
+codigo atual. Entretanto, isso impediria o reaproveitamento de algumas das funcoes usadas,
+alem dos valores de retorno e argumentos de outras funcoes.
+
+-Ao inves de passar somente o indice de cada thread como argumento, uma struct que contivesse,
+alem do indice, as informacoes dos ponteiros declarados no inicio do codigo poderia deixar este
+mais limpo. Porem, novamente, a estrutura do codigo necessitaria ser bastante alterada, o que 
+resultar no surgimento de novos bugs.
+*/
