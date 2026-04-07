@@ -68,23 +68,30 @@ void *routine(void *tid) {
     int i, j;
     int threadId = (*(int*) tid);
 
+    printf("Thread %d iniciou a conversao para tons de cinza\n", threadId);
+
     for(i=threadId; i<*pontLinhas; i=i+NUM_THREADS) {
         for(j=0; j<*pontColunas; j++) {
             greyMat[i][j] = getGreyScale(redMat[i][j], greenMat[i][j], blueMat[i][j]);
         }
     }
+
+    printf("Thread %d finalizou a conversao para tons de cinza\n", threadId);
     free(tid);
 
     return NULL;
 }
 
 int main() {
+    printf("Comecando programa...\n");
+
     //Carregar arquivo na memoria
     FILE* ptrRead = fopen("questao1_og.ppm", "r");
     if (ptrRead == NULL) {
         printf("Arquivo 'questao1_og.ppm' nao encontrado.\n");
         return 1;
     }
+    else printf("Carregando imagem original na memoria\n");
 
     //Obter os dados da imagem
     int qntLinhas, qntColunas, rangeCor;
@@ -126,6 +133,7 @@ int main() {
     }
 
     //Ler cor de cada canal
+    printf("Obtendo tons dos pixels\n");
     for(int i=0; i<qntLinhas; i++) {
         for(int j=0; j<qntColunas; j++) {
             int red, green, blue;
@@ -187,12 +195,14 @@ int main() {
         fclose(ptrRead);
         return 2;
     }
+    else printf("Criando arquivo da imagem covertida\n");
 
     //Escrita dos valores de cada pixel na imagem
     fprintf(ptrWrite, "P3\n");
     fprintf(ptrWrite, "%d %d\n", qntColunas, qntLinhas);
     fprintf(ptrWrite, "%d\n", rangeCor);
 
+    printf("Escrevendo valores de cada pixel\n");
     for(int i=0; i<qntLinhas; i++) {
         for(int j=0; j<qntColunas; j++) {
             fprintf(ptrWrite, "%d %d %d\n", greyMat[i][j], greyMat[i][j], greyMat[i][j]);
@@ -208,6 +218,7 @@ int main() {
     freeMatriz(greyMat, qntLinhas);
     fclose(ptrRead);
     fclose(ptrWrite);
+    printf("Terminando programa...\n");
     return 0;
 }
 
