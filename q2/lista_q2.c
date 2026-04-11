@@ -5,27 +5,17 @@
 #include <unistd.h>
 
 #define LINES 7 //quantidade de linhas da tabela
-#define THREADS 3 //quantidade de threads
-#define ATUALIZACOES 3 //quantidades de atualizações por arquivo
+#define THREADS 3 //quantidade de threads (consequentemente o número de arquivos também)
+#define ATUALIZACOES 3 //quantidades de atualizações por arquivo (todos os arquivos tem que ter a mesma)
 
 typedef struct inputData{
   FILE *fptr; //ponteiro pra arquivo
   char input[30]; //nome do arquivo de entrada
+  int threadID; //id da thread
 }inputData;
 
-char chart[LINES][30]; //tabela das informações dos trens (Array de strings)
-pthread_mutex_t mutex[7]; //um mutex por linha da tabela
-
-void printarTabela(){
-  printf("\e[0;40;1m%s\e[0m\n", chart[0]);
-  printf("\e[0;41;1m%s\e[0m\n", chart[1]);
-  printf("\e[0;42;1m%s\e[0m\n", chart[2]);
-  printf("\e[0;43;1m%s\e[0m\n", chart[3]);
-  printf("\e[0;44;1m%s\e[0m\n", chart[4]);
-  printf("\e[0;45;1m%s\e[0m\n", chart[5]);
-  printf("\e[0;46;1m%s\e[0m\n", chart[6]);
-  printf("\n");
-}
+pthread_mutex_t mutex[LINES]; //um mutex por linha da tabela, pra garantir que duas threads não vão mexer na mesma linha ao mesmo tempo
+pthread_mutex_t mutexPrint; //mutex pra cada thread ter a sua vez de mexer no cursor pra fazer seus prints
 
 //atualiza e printa a tabela com as informações novas
 void *updateChart(void *args){
@@ -39,20 +29,25 @@ void *updateChart(void *args){
     char info[30];
 
     for(int j=0; j<ATUALIZACOES; j++){ //fazer isso até ter lido o arquivo todo
+      
       fscanf((*(inputData*)args).fptr, "%d", &numLinha); //verifica qual é a linha que vai ser alterada
-      numLinha -= 1; //subtrair 1 pra ficar com o index correto
 
-      pthread_mutex_lock(&mutex[numLinha]); //caso comece a modificar uma linha, bloqueia ela
+      pthread_mutex_lock(&mutex[numLinha-1]); //caso comece a modificar uma linha, bloqueia ela
+      pthread_mutex_lock(&mutexPrint);//caso uma thread começe a mexer no cursor pra realizar os prints, impede outras de fazerem o mesmo
+
+      printf("\e[u"); //garante que o cursor sempre comece no início da tabela quando a thread começar sua atividade
       
       fscanf((*(inputData*)args).fptr, " %30[^\n]", info); //pega nova informação
-      strcpy(chart[numLinha], info); //atualiza tabela
-      printf("LINHA MODIFICADA: %d\n", numLinha + 1);
-      printf("NOVA INFORMAÇÃO: %s\n", info);
-      printarTabela();
-      sleep(2); //espera dois segundos até que a linha possa ser modificada de novo
-      
-      pthread_mutex_unlock(&mutex[numLinha]); //desbloqueia linha
 
+      printf("\e[%dB", numLinha); //mover cursor pra linha que vai ser modificada (B desce numLinha vezes)
+
+      printf("\e[0;4%d;1m%s\e[0m",numLinha-1, info); //atualizar linha com a cor correta
+      printf(" modificado mais recentemente por thread %d\n", (*(inputData*)args).threadID); //indicar thread q modificou
+      
+      pthread_mutex_unlock(&mutexPrint);
+      pthread_mutex_unlock(&mutex[numLinha-1]); //desbloqueia linha
+
+      sleep(2); //espera dois segundos pras mudanças serem visíveis
     }
   }
   pthread_exit(NULL);
@@ -74,35 +69,32 @@ int main(int argc, int *argv[]){
   strcpy(args[1]->input, "Q2_arquivo2.txt");
   strcpy(args[2]->input, "Q2_arquivo3.txt");
 
-  //inicializar tabela
-  strcpy(chart[0], "AQT123 Istambul    17:45");
-  strcpy(chart[1], "XYZ001 Nice        17:00");
-  strcpy(chart[2], "ABC789 Moscou      18:20");
-  strcpy(chart[3], "FFF305 Estocolmo   18:35");
-  strcpy(chart[4], "QRS111 Madri       18:45");
-  strcpy(chart[5], "DEF321 Berlim      19:00");
-  strcpy(chart[6], "GHI456 St. Petsbu. 19:15");
-
   //inicializar mutexes
-  pthread_mutex_init(&mutex[0], NULL);
-  pthread_mutex_init(&mutex[1], NULL);
-  pthread_mutex_init(&mutex[2], NULL);
-  pthread_mutex_init(&mutex[3], NULL);
-  pthread_mutex_init(&mutex[4], NULL);
-  pthread_mutex_init(&mutex[5], NULL);
-  pthread_mutex_init(&mutex[6], NULL);
-  
-  printf("TABELA INICIAL:\n");
-  printarTabela();
+  for(i=0; i<LINES; i++){
+    pthread_mutex_init(&mutex[i], NULL);
+  }
+  pthread_mutex_init(&mutexPrint, NULL);
 
+  //printar tabela
+  printf("\e[0;40;1mAQT123 Istambul    17:45\e[0m\n");
+  printf("\e[0;41;1mXYZ001 Nice        17:00\e[0m\n");
+  printf("\e[0;42;1mABC789 Moscou      18:20\e[0m\n");
+  printf("\e[0;43;1mFFF305 Estocolmo   18:35\e[0m\n");
+  printf("\e[0;44;1mQRS111 Madri       18:45\e[0m\n");
+  printf("\e[0;45;1mDEF321 Berlim      19:00\e[0m\n");
+  printf("\e[0;46;1mGHI456 St. Petsbu. 19:15\e[0m\n");
+  sleep(2);
+
+  printf("\e[%dA", LINES + 1); //move o cursor pra cima da tabela
+  printf("\e[s"); //salva a posição
+  
   //criar as threads 
   for(i=0; i<THREADS; i++){
-    printf("criando thread %d...\n", i);
+    args[i]->threadID = i;
     if(pthread_create(&threads[i], NULL, &updateChart, args[i]) != 0){
       printf("erro no thread create\n");
       return 1;
     }
-    printf("thread %d criada\n", i);
   }
 
   //aguardar as threads acabarem
@@ -111,17 +103,16 @@ int main(int argc, int *argv[]){
       printf("erro no thread join\n");
       return 1;
     }
+    printf("\e[u");
+    printf("\e[%dB", LINES+3+i);  //mover cursor pra baixo da tabela pros últimos prints
     printf("thread %d finalizada\n", i);
   }
   
   //desalocar mutexes
-  pthread_mutex_destroy(&mutex[0]);
-  pthread_mutex_destroy(&mutex[1]);
-  pthread_mutex_destroy(&mutex[2]);
-  pthread_mutex_destroy(&mutex[3]);
-  pthread_mutex_destroy(&mutex[4]);
-  pthread_mutex_destroy(&mutex[5]);
-  pthread_mutex_destroy(&mutex[6]);
+  for(i=0; i<LINES; i++){
+    pthread_mutex_destroy(&mutex[i]);
+  }
+  pthread_mutex_destroy(&mutexPrint);
 
   //free na memória alocada 
   for(i=0; i<THREADS; i++){
@@ -130,14 +121,3 @@ int main(int argc, int *argv[]){
 
   return 0;
 }
-
-/*
-ANSI
-  exemplo: printf("\e[0;40;1mTEXTO\e[0m\n");
-  sempre tem o \e[0; no inicio
-  segundo número: código da cor
-    (30 a 37 muda cor do texto, 40 a 47 muda a cor do fundo)
-  terceiro número: modos (itálico, sublinhado, etc. 1 é o default)
-  "m" antes do texto
-  \e[0m depois do texto é pra resetar as coisa pro default
-*/
