@@ -1,0 +1,5 @@
+search x
+delete y
+search z
+insert a 10
+search a

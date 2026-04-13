@@ -8,6 +8,7 @@
 #include <string.h>
 
 #define NUM_THREADS 5
+#define MAX_OPS 100
 
 typedef struct Node {
     char *key;
@@ -21,32 +22,85 @@ typedef struct HashMap {
     pthread_mutex_t *locks;
 } HashMap;
 
+typedef enum OpType {
+    INSERT,
+    SEARCH,
+    DELETE
+} OpType;
+
+typedef struct Operation {
+    OpType type;
+    char key[50];
+    int value;
+} Operation;
+
+typedef struct ThreadArgs {
+    HashMap *hm;
+    int id;
+    Operation op;
+} ThreadArgs;
+
 int hashFunction(const char *key, int size);
 HashMap *hashmap_create(int size);
 void hashmap_insert(HashMap *hm, const char *key,  int value);
 int hashmap_search(HashMap *hm, const char *key);
-void hashmap_delete(HashMap *hm, const char *key);
+bool hashmap_delete(HashMap *hm, const char *key);
 void hashmap_destroy(HashMap *hm);
 
-void *routine(void *arg) {
-    HashMap *hm = (HashMap *)arg;
+void *routine(void *arg);
 
-    //..
-
-}
-
-int main() {
+int main(int argc, char *argv[]) {
     HashMap *hm = hashmap_create(10);
-    pthread_t threads[NUM_THREADS];
+    pthread_t threads[MAX_OPS];
+    Operation ops[MAX_OPS];
+    int op_count = 0;
 
-    for (int i = 0; i < NUM_THREADS; i++) {
-        if (pthread_create(&threads[i], NULL, routine, hm) != 0) {
-            perror("Failed to create thread.\n");
+    FILE *file = fopen(argv[1], "r");
+    if (!file) {
+        perror("Erro ao abrir arquivo");
+        return 1;
+    } else {
+
+        char op_type[10];
+        char key[50];
+        int value;
+
+        
+        while(fscanf(file, "%s %s %d", op_type, key, &value) >= 1) {
+            if (strcmp(op_type, "insert") == 0) {
+                ops[op_count].type = INSERT;
+                strcpy(ops[op_count].key, key);
+                ops[op_count].value = value;
+            }
+            if (strcmp(op_type, "search") == 0) {
+                ops[op_count].type = SEARCH;
+                strcpy(ops[op_count].key, key);   
+            }
+            if (strcmp(op_type, "delete") == 0) {
+                ops[op_count].type = DELETE;
+                strcpy(ops[op_count].key, key);
+            }
+            op_count++;
+        }
+
+        if (fclose(file) != 0) {
+            perror("Erro ao fechar arquivo");
         }
     }
-    for (int i = 0; i < NUM_THREADS; i++) {
+
+    ThreadArgs args[MAX_OPS];
+
+    for (int i = 0; i < op_count; i++) {
+        args[i].hm = hm;
+        args[i].id = i;
+        args[i].op = ops[i];
+        if (pthread_create(&threads[i], NULL, routine, &args[i]) != 0) {
+            perror("Falha na create da thread.\n");
+        }
+    }
+    for (int i = 0; i < op_count; i++) {
         if (pthread_join(threads[i], NULL) != 0) {
-            perror("Failed to join thread.\n");
+            perror("Falha no join da thread.\n");
         }
     }
 
@@ -54,8 +108,55 @@ int main() {
     return 0;
 }
 
+// ROTINA DE FUNCIONALIDADES DE INSERT, SEARCH E DELETE DA HASHMAP //
+
+void *routine(void *arg) {
+    ThreadArgs *args = (ThreadArgs *)arg;
+
+    switch (args->op.type) {
+        case INSERT: {
+            hashmap_insert(args->hm, args->op.key, args->op.value);
+            printf("Thread [%d] inseriu [%s -> %d].\n", 
+                args->id,
+                args->op.key,
+                args->op.value);
+                break;
+        }
+
+        case SEARCH: {
+            int result = hashmap_search(args->hm, args->op.key);
+            if (result != -1) {
+                printf("Thread [%d] achou [%s -> %d].\n",
+                    args->id,
+                    args->op.key,
+                    result);
+            } else {
+                printf("Thread [%d] nao encontrou [%s].\n", 
+                    args->id,
+                    args->op.key);
+            }
+            break;
+        }
+
+        case DELETE: {
+            if (hashmap_delete(args->hm, args->op.key)) {
+                printf("Thread [%d] deletou [%s].\n", 
+                    args->id, args->op.key);
+            } else {
+                printf("Thread [%d] nao encontrou [%s] para deletar.\n",
+                    args->id, args->op.key);
+            }
+            break;
+        }
+
+        default:
+            return NULL;
+    }
+    return NULL;
+}
 
 // CONSTRUCAO DA HASHMAP **COM THREADS**//
+
 
 int hashFunction(const char *key, int size) {
     int sum = 0;
@@ -125,7 +226,7 @@ int hashmap_search(HashMap *hm, const char *key) {
     return -1;
 }
 
-void hashmap_delete(HashMap *hm, const char *key) {
+bool hashmap_delete(HashMap *hm, const char *key) {
     int id = hashFunction(key, hm->size);
 
     pthread_mutex_lock(&hm->locks[id]);
@@ -138,12 +239,13 @@ void hashmap_delete(HashMap *hm, const char *key) {
             free(cur->key);
             free(cur);
             pthread_mutex_unlock(&hm->locks[id]);
-            return;
+            return true;
         }
         prev = cur;
         cur = cur->next;
     }
     pthread_mutex_unlock(&hm->locks[id]);
+    return false;
 }
 
 void hashmap_destroy(HashMap *hm) {

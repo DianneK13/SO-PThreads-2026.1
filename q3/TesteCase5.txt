@@ -1,0 +1,10 @@
+insert a 97
+insert k 107
+insert C 67
+delete a
+search a
+insert W 87
+insert u 117
+search u
+delete c
+search k
