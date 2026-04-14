@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#define ARR_SIZE 10
 
 // STRUCTS ========================== //
 
@@ -26,6 +29,28 @@ void *routine (void *arg);
 // VVVVVVVVVVVVV MAIN VVVVVVVVVVVVVVV //
 
 int main (int argc, char *argv[]) {
+
+    int input_arr[ARR_SIZE];
+    srand(time(NULL));  // semente baseada no tempo
+    for (int i = 0; i < ARR_SIZE; i++) {
+        input_arr[i] = rand() % 1000 - 500;  // valores entre -500 e 499
+    }
+
+    printf("\nARRAY DESORDENADO:\n{ ");
+    for (int i = 0; i < ARR_SIZE; i++) {
+        if (i < ARR_SIZE - 1) printf("%d, ", input_arr[i]);
+        else printf("%d", input_arr[i]);
+    }
+    printf(" }\n\n");
+
+    merge_sort(input_arr, 0, ARR_SIZE - 1);
+
+    printf("\nARRAY ORDENADO:\n{ ");
+    for (int i = 0; i < ARR_SIZE; i++) {
+        if (i < ARR_SIZE - 1) printf("%d, ", input_arr[i]);
+        else printf("%d", input_arr[i]);
+    }
+    printf(" }\n\n");
 
     return 0;
 }
@@ -108,6 +133,10 @@ void merge_sort(int *arr, int l, int r) {
 
 void *routine (void *arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
+    printf("Thread ORDENANDO intervalo [%d, %d]\n",
+        args->left, args->right);
     merge_sort(args->arr, args->left, args->right);
+    printf("Thread CONCLUIU  intervalo [%d, %d]\n",
+        args->left, args->right);
     return NULL;
 };
