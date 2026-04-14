@@ -10,14 +10,18 @@
 // STRUCTS ========================== //
 
 /* Argumentos passados para cada Thread */
-
+typedef struct ThreadArgs {
+    int *arr;
+    int left;
+    int right;
+} ThreadArgs;
 
 // DECLARAÇÃO DAS FUNÇÕES =========== //
 
 void merge(int *arr, int l, int m, int r);
 void merge_sort(int *arr, int l, int r);
 
-// ================================== //
+void *routine (void *arg);
 
 // VVVVVVVVVVVVV MAIN VVVVVVVVVVVVVVV //
 
@@ -70,14 +74,40 @@ void merge(int *arr, int l, int m, int r) {
     
 };
 
+// MERGE SORTE **COM THREADS** //
+
 void merge_sort(int *arr, int l, int r) {
+
+    pthread_t thread_left;
+    ThreadArgs args_left;
+    pthread_t thread_right;
+    ThreadArgs args_right;
+
     if (l < r) {
         int mid = l + (r - l) / 2;
 
-        merge_sort(arr, l, mid);
-        merge_sort(arr, mid + 1, r);
+        args_left.arr = arr;
+        args_left.left = l;
+        args_left.right = mid;
+        if (pthread_create(&thread_left, NULL, routine, &args_left) != 0) {
+            perror("Falha na create da thread.\n");
+        }
+        
+        args_right.arr = arr;
+        args_right.left = mid + 1;
+        args_right.right = r;
+        if (pthread_create(&thread_right, NULL, routine, &args_right) != 0) {
+            perror("Falha na create da thread.\n");
+        }
 
+        pthread_join(thread_left, NULL);
+        pthread_join(thread_right, NULL);
         merge(arr, l, mid, r);
     }
 };
-    
+
+void *routine (void *arg) {
+    ThreadArgs *args = (ThreadArgs *)arg;
+    merge_sort(args->arr, args->left, args->right);
+    return NULL;
+};
