@@ -1,0 +1,25 @@
+insert a 100
+insert b 200
+insert c 300
+insert d 400
+insert e 500
+search a
+search b
+search c
+insert f 600
+insert g 700
+insert a 999
+insert b 888
+delete a
+delete b
+search a
+search b
+insert a 999
+insert b 888
+search a
+search b
+delete f
+search f
+insert h 300
+insert h 999
+search h

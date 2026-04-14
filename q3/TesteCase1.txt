@@ -1,0 +1,3 @@
+insert alice 30
+search alice
+delete alice
